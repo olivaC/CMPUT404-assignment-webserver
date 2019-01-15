@@ -33,8 +33,8 @@ import sys
 OK = "HTTP/1.1 200 OK\n"
 ERROR404 = "HTTP/1.1 404 Not Found\n"
 ERROR405 = "HTTP/1.1 405 Method Not Found\n"
-HTML = "Content-type: text/html\r\n\r\n"
-CSS = "Content-type: text/css\r\n\r\n"
+HTML = "Content-Type: text/html\r\n\r\n"
+CSS = "Content-Type: text/css\r\n\r\n"
 
 
 # ----------------- Classes --------------------- #
@@ -43,20 +43,21 @@ class MyWebServer(socketserver.BaseRequestHandler):
 
     def handle(self):
         self.data = self.request.recv(1024).strip().decode("utf-8")
-        print(self.data)
+        print(self.data.split("\r\n")[0])
         if self.data.startswith('GET'):
-            print(self.data)
             url = decompose_request(self.data)
-            if url in ('/', '/index.html'):
+            if url in ('/', '/index.html', '/index.html/'):
                 sendall_html = generate_sendall('www/index.html', 'html')
-                sendall_css = generate_sendall('www/base.css', 'css')
                 self.request.sendall(bytearray(sendall_html, 'utf-8'))
-                self.request.sendall(bytearray(sendall_css, 'utf-8'))
             elif url in ('/deep/', '/deep', '/deep/index.html', '/deep/index.html/'):
                 sendall = generate_sendall('www/deep/index.html', 'html')
                 self.request.sendall(bytearray(sendall, 'utf-8'))
-            else:
-                self.request.sendall(bytearray(ERROR404, 'utf-8'))
+            if url in ('/base.css'):
+                sendall_css = generate_sendall('www/base.css', 'css')
+                self.request.sendall(bytearray(sendall_css, 'utf-8'))
+            elif url in ('/deep/deep.css'):
+                sendall_css = generate_sendall('www/deep/deep.css', 'css')
+                self.request.sendall(bytearray(sendall_css, 'utf-8'))
         else:
             # Return status code 405 Method not allowed for (POST/PUT/DELETE)
             self.request.sendall(bytearray(ERROR405, 'utf-8'))
@@ -66,7 +67,6 @@ class MyWebServer(socketserver.BaseRequestHandler):
 
 def decompose_request(data):
     url = data.split("\r\n")[0].split(" ")[1]
-    print("url is: " + url)
     return url
 
 
