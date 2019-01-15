@@ -31,7 +31,8 @@ import sys
 # --------- Globally Defined Variables ---------- #
 
 OK = "HTTP/1.1 200 OK\n"
-ERROR = "HTTP/1.1 404 Not Found\n"
+ERROR404 = "HTTP/1.1 404 Not Found\n"
+ERROR405 = "HTTP/1.1 405 Method Not Found\n"
 HTML = "Content-type: text/html\r\n\r\n"
 CSS = "Content-type: text/css\r\n\r\n"
 
@@ -47,13 +48,18 @@ class MyWebServer(socketserver.BaseRequestHandler):
             print(self.data)
             url = decompose_request(self.data)
             if url in ('/', '/index.html'):
-                sendall = generate_sendall('www/index.html', 'html')
-                self.request.sendall(bytearray(sendall, 'utf-8'))
-            elif url in ('/deep/', '/deep', '/deep/index.html'):
+                sendall_html = generate_sendall('www/index.html', 'html')
+                sendall_css = generate_sendall('www/base.css', 'css')
+                self.request.sendall(bytearray(sendall_html, 'utf-8'))
+                self.request.sendall(bytearray(sendall_css, 'utf-8'))
+            elif url in ('/deep/', '/deep', '/deep/index.html', '/deep/index.html/'):
                 sendall = generate_sendall('www/deep/index.html', 'html')
                 self.request.sendall(bytearray(sendall, 'utf-8'))
             else:
-                self.request.sendall(bytearray(ERROR, 'utf-8'))
+                self.request.sendall(bytearray(ERROR404, 'utf-8'))
+        else:
+            # Return status code 405 Method not allowed for (POST/PUT/DELETE)
+            self.request.sendall(bytearray(ERROR405, 'utf-8'))
 
 
 # ------------ User Defined Functions ------------#
@@ -74,7 +80,7 @@ def generate_sendall(file, req_type):
     if req_type == 'html':
         sendall = OK + HTML
     else:
-        sendall = OK + HTML
+        sendall = OK + CSS
     with open(file, 'r', encoding='utf-8') as infile:
         for line in infile:
             sendall += line
