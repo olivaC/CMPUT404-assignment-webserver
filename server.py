@@ -2,8 +2,9 @@
 import socketserver
 import signal
 import sys
+import os
 
-# Copyright 2013 Abram Hindle, Eddie Antonio Santos
+# Copyright 2019 Carlo Oliva
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +25,6 @@ import sys
 #
 # http://docs.python.org/2/library/socketserver.html
 #
-# run: python freetests.py
-
-# try: curl -v -X GET http://127.0.0.1:8080/
 
 # --------- Globally Defined Variables ---------- #
 
@@ -42,21 +40,26 @@ CSS = "Content-Type: text/css\r\n\r\n"
 class MyWebServer(socketserver.BaseRequestHandler):
 
     def handle(self):
+        start_os = os.path.abspath("www/")  # Used to find CSS files from the www/ directory
         self.data = self.request.recv(1024).strip().decode("utf-8")
-        print(self.data.split("\r\n")[0])
+        # print(self.data.split("\r\n")[0])
         if self.data.startswith('GET'):
-            url = decompose_request(self.data)
-            if url in ('/', '/index.html', '/index.html/'):
-                sendall_html = generate_sendall('www/index.html', 'html')
+            print(self.data.split("\r\n")[0])
+            # print(self.data.split("\r\n"))
+            url_file, error = decompose_request(self.data)
+            if error:
+                self.request.sendall(bytearray(ERROR404, 'utf-8'))
+                pass
+            try:
+                open(url_file)
+            except FileNotFoundError:
+                print("File not found")
+                self.request.sendall(bytearray(ERROR404, 'utf-8'))
+            if url_file.endswith("index.html"):
+                sendall_html = generate_sendall(url_file, 'html')
                 self.request.sendall(bytearray(sendall_html, 'utf-8'))
-            elif url in ('/deep/', '/deep', '/deep/index.html', '/deep/index.html/'):
-                sendall = generate_sendall('www/deep/index.html', 'html')
-                self.request.sendall(bytearray(sendall, 'utf-8'))
-            if url in ('/base.css'):
-                sendall_css = generate_sendall('www/base.css', 'css')
-                self.request.sendall(bytearray(sendall_css, 'utf-8'))
-            elif url in ('/deep/deep.css'):
-                sendall_css = generate_sendall('www/deep/deep.css', 'css')
+            if url_file.endswith('.css'):
+                sendall_css = generate_sendall(url_file, 'css')
                 self.request.sendall(bytearray(sendall_css, 'utf-8'))
         else:
             # Return status code 405 Method not allowed for (POST/PUT/DELETE)
@@ -66,13 +69,54 @@ class MyWebServer(socketserver.BaseRequestHandler):
 # ------------ User Defined Functions ------------#
 
 def decompose_request(data):
+    """
+    Takes the url of the get request and parse through it to generate the correct file path.
+    :param data: the url
+    :return: file path
+    """
+    start_os = os.path.abspath("www/")  # Used to find CSS files from the www/ directory
     url = data.split("\r\n")[0].split(" ")[1]
-    return url
+    prefix = 'www'
+    delimiter = '/'
+    spl = url.split("/")
+    length = len(spl)
+    print(spl)
+    print(length)
+    if spl[length - 1] == "":
+        spl[length - 1] = "index.html"
+    elif not spl[length - 1].endswith(".html") and not spl[length - 1].endswith(".css"):
+        spl.append("index.html")
+    elif spl[length - 1].endswith(".css"):  # Find the CSS file, assuming that each CSS file is uniquely named.
+        abs_path = find(spl[length - 1], start_os)
+        abs_file = abs_path.split('www/')
+        print(abs_file[1])
+        if str(abs_file[1]).count('/') != length:
+         return prefix + delimiter + str(abs_file[1]), True
+        else:
+            return prefix + delimiter + str(abs_file[1]), False
+
+    return prefix + delimiter.join(spl), False
+
+
+def find(name, path):
+    """
+    Finds a file based on the directory given as well as the file name. Returns the path.
+
+    Taken from: https://stackoverflow.com/questions/1724693/find-a-file-in-python on January 15/19
+    Author: https://stackoverflow.com/users/97828/nadia-alramli
+    :param name: the file name
+    :param path: path
+    :return: file path
+    """
+    for root, dirs, files in os.walk(path):
+        if name in files:
+            return os.path.join(root, name)
 
 
 def generate_sendall(file, req_type):
     """
     Adds the correct heading to the HTML/CSS files found in the www folder
+
     :param file: the html/css file to be opened and read
     :param req_type: either html or css
     :return: A complete string including the correct headings
@@ -89,11 +133,11 @@ def generate_sendall(file, req_type):
 
 def signal_handler(sig, frame):
     """
-    Taken from https://stackoverflow.com/questions/1112343/how-do-i-capture-sigint-in-python on January 14/19
-    Author: https://stackoverflow.com/users/18528/matt-j
-
     Checks if control+c is pressed to stop the web server for a more graceful exit than displaying the exception
     messages.
+
+    Taken from https://stackoverflow.com/questions/1112343/how-do-i-capture-sigint-in-python on January 14/19
+    Author: https://stackoverflow.com/users/18528/matt-j
     :param sig:
     :param frame:
     :return: None
