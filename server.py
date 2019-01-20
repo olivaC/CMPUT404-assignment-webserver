@@ -28,6 +28,13 @@ import os
 
 # --------- Globally Defined Variables ---------- #
 
+"""
+Status codes taken from https://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
+
+Carriage Return and New Line taken from class notes
+    CMPUT 404 Abram Hindle January 18, 2019
+"""
+
 OK = "HTTP/1.1 200 OK\n"
 ERROR404 = "HTTP/1.1 404 Not Found\n"
 ERROR405 = "HTTP/1.1 405 Method Not Found\n"
